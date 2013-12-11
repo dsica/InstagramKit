@@ -65,29 +65,29 @@ extern NSString *const kInstagramKitAuthorizationUrl __deprecated;
            withSuccess:(void (^)(InstagramUser *userDetail))success
                failure:(void (^)(NSError* error))failure;
 
-- (void)getMediaForUser:(NSString *)userId count:(NSInteger)count
-        withSuccess:(void (^)(NSArray *feed))success
+- (void)getMediaForUser:(NSString *)userId count:(NSInteger)count nextMaxId:(NSString *)nextMaxId
+            withSuccess:(void (^)(NSArray *feed, NSString *nextMaxId, NSString *nextUrl))success
             failure:(void (^)(NSError* error))failure;
 
 #pragma mark - Tags -
 
 - (void)getMediaWithTag:(NSString *)tag
-            withSuccess:(void (^)(NSArray *feed))success
+            withSuccess:(void (^)(NSArray *feed, NSString *nextMaxId, NSString *nextUrl))success
                 failure:(void (^)(NSError* error))failure;
 
 #pragma mark - Self -
 
 - (void)getSelfFeed:(NSInteger)count
-        withSuccess:(void (^)(NSArray *feed))success
+        withSuccess:(void (^)(NSArray *feed, NSString *nextMaxId, NSString *nextUrl))success
             failure:(void (^)(NSError* error))failure;
 
-- (void)getSelfLikesWithSuccess:(void (^)(NSArray *feed))success
+- (void)getSelfLikesWithSuccess:(void (^)(NSArray *feed, NSString *nextMaxId, NSString *nextUrl))success
             failure:(void (^)(NSError* error))failure;
 
 #pragma mark - Comments -
 
 - (void)getCommentsOnMedia:(NSString *)mediaId
-               withSuccess:(void (^)(NSArray *comments))success
+               withSuccess:(void (^)(NSArray *comments, NSString *nextMaxId, NSString *nextUrl))success
                    failure:(void (^)(NSError* error))failure;
 
 @end

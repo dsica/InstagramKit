@@ -31,6 +31,7 @@
 
 #define kID @"id"
 #define kCount @"count"
+#define kMaxId @"max_id"
 #define kURL @"url"
 #define kHeight @"height"
 #define kWidth @"width"

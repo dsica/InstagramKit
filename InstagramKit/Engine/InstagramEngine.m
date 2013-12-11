@@ -39,6 +39,7 @@ NSString *const kInstagramKitAuthorizationUrlDefault = @"https://api.instagram.c
 NSString *const kInstagramKitAuthorizationUrl __deprecated = @"https://api.instagram.com/oauth/authorize/";
 
 #define kData @"data"
+#define kMaxId @"max_id"
 
 @interface InstagramEngine()
 {
@@ -107,7 +108,7 @@ NSString *const kInstagramKitAuthorizationUrl __deprecated = @"https://api.insta
 - (void)getPath:(NSString*)path
      responseModel:(Class)modelClass
      parameters:(NSDictionary *)parameters
-        success:(void (^)(id response))success
+        success:(void (^)(id response, NSString *nextMaxId, NSString *nextUrl))success
         failure:(void (^)(NSError* error, NSInteger statusCode))failure
 {
 
@@ -123,6 +124,10 @@ NSString *const kInstagramKitAuthorizationUrl __deprecated = @"https://api.insta
         parameters:params
            success:^(AFHTTPRequestOperation *operation, id responseObject) {
                NSDictionary *responseDictionary = (NSDictionary *)responseObject;
+               
+               NSString *nextMaxId = [responseObject valueForKeyPath:@"pagination.next_max_id"];
+               NSString *nextUrl = [responseObject valueForKeyPath:@"pagination.next_url"];
+
                BOOL collection = ([responseDictionary[kData] isKindOfClass:[NSArray class]]);
                if (collection) {
                    NSArray *responseObjects = responseDictionary[kData];
@@ -133,13 +138,13 @@ NSString *const kInstagramKitAuthorizationUrl __deprecated = @"https://api.insta
                            [objects addObject:model];
                        }
                        dispatch_async(dispatch_get_main_queue(), ^{
-                           success(objects);
+                           success(objects, nextMaxId, nextUrl);
                        });
                    });
                }
                else {
                    id model = [[modelClass alloc] initWithInfo:responseDictionary[kData]];
-                   success(model);
+                   success(model, nextMaxId, nextUrl);
                }
            }
            failure:^(AFHTTPRequestOperation *operation, NSError *error) {
@@ -153,7 +158,7 @@ NSString *const kInstagramKitAuthorizationUrl __deprecated = @"https://api.insta
 - (void)getPopularMediaWithSuccess:(void (^)(NSArray *media))success
                            failure:(void (^)(NSError* error))failure
 {
-    [self getPath:@"media/popular" responseModel:[InstagramMedia class] parameters:nil success:^(id response) {
+    [self getPath:@"media/popular" responseModel:[InstagramMedia class] parameters:nil success:^(id response, NSString *nextMaxId, NSString *nextUrl) {
         NSArray *objects = response;
         success(objects);
     } failure:^(NSError *error, NSInteger statusCode) {
@@ -165,7 +170,7 @@ NSString *const kInstagramKitAuthorizationUrl __deprecated = @"https://api.insta
                withSuccess:(void (^)(InstagramMedia *media))success
                    failure:(void (^)(NSError* error))failure
 {
-    [self getPath:[NSString stringWithFormat:@"media/%@",mediaId] responseModel:[InstagramMedia class] parameters:nil success:^(id response) {
+    [self getPath:[NSString stringWithFormat:@"media/%@",mediaId] responseModel:[InstagramMedia class] parameters:nil success:^(id response, NSString *nextMaxId, NSString *nextUrl) {
         InstagramMedia *media = response;
         success(media);
     } failure:^(NSError *error, NSInteger statusCode) {
@@ -179,7 +184,7 @@ NSString *const kInstagramKitAuthorizationUrl __deprecated = @"https://api.insta
      withSuccess:(void (^)(InstagramUser *userDetail))success
          failure:(void (^)(NSError* error))failure
 {
-    [self getPath:[NSString stringWithFormat:@"users/%@",user.Id] responseModel:[InstagramUser class] parameters:nil success:^(id response) {
+    [self getPath:[NSString stringWithFormat:@"users/%@",user.Id] responseModel:[InstagramUser class] parameters:nil success:^(id response, NSString *nextMaxId, NSString *nextUrl) {
         InstagramUser *userDetail = response;
         success(userDetail);
     } failure:^(NSError *error, NSInteger statusCode) {
@@ -187,13 +192,17 @@ NSString *const kInstagramKitAuthorizationUrl __deprecated = @"https://api.insta
     }];
 }
 
-- (void)getMediaForUser:(NSString *)userId count:(NSInteger)count
-        withSuccess:(void (^)(NSArray *feed))success
+- (void)getMediaForUser:(NSString *)userId count:(NSInteger)count nextMaxId:(NSString *)nextMaxId
+        withSuccess:(void (^)(NSArray *feed, NSString *nextMaxId, NSString *nextUrl))success
             failure:(void (^)(NSError* error))failure
 {
-    [self getPath:[NSString stringWithFormat:@"users/%@/media/recent",userId] responseModel:[InstagramMedia class] parameters:@{kCount:[NSString stringWithFormat:@"%d",count]} success:^(id response) {
+    NSMutableDictionary *parametersDict = [NSMutableDictionary dictionaryWithObject:[NSString stringWithFormat:@"%d",count] forKey:kCount];
+    if (nextMaxId) {
+        [parametersDict setObject:nextMaxId forKey:kMaxId];
+    }
+    [self getPath:[NSString stringWithFormat:@"users/%@/media/recent",userId] responseModel:[InstagramMedia class] parameters:parametersDict success:^(id response, NSString *nextMaxId, NSString *nextUrl) {
         NSArray *objects = response;
-        success(objects);
+        success(objects, nextMaxId, nextUrl);
         
     } failure:^(NSError *error, NSInteger statusCode) {
         failure(error);
@@ -204,12 +213,12 @@ NSString *const kInstagramKitAuthorizationUrl __deprecated = @"https://api.insta
 #pragma mark - Tags -
 
 - (void)getMediaWithTag:(NSString *)tag
-        withSuccess:(void (^)(NSArray *feed))success
+        withSuccess:(void (^)(NSArray *feed, NSString *nextMaxId, NSString *nextUrl))success
             failure:(void (^)(NSError* error))failure
 {
-    [self getPath:[NSString stringWithFormat:@"tags/%@/media/recent",tag] responseModel:[InstagramMedia class] parameters:nil success:^(id response) {
+    [self getPath:[NSString stringWithFormat:@"tags/%@/media/recent",tag] responseModel:[InstagramMedia class] parameters:nil success:^(id response, NSString *nextMaxId, NSString *nextUrl) {
         NSArray *objects = response;
-        success(objects);
+        success(objects, nextMaxId, nextUrl);
         
     } failure:^(NSError *error, NSInteger statusCode) {
         failure(error);
@@ -220,12 +229,12 @@ NSString *const kInstagramKitAuthorizationUrl __deprecated = @"https://api.insta
 #pragma mark - Self -
 
 - (void)getSelfFeed:(NSInteger)count
-        withSuccess:(void (^)(NSArray *feed))success
+        withSuccess:(void (^)(NSArray *feed, NSString *nextMaxId, NSString *nextUrl))success
                 failure:(void (^)(NSError* error))failure
 {
-    [self getPath:[NSString stringWithFormat:@"users/self/feed"] responseModel:[InstagramMedia class] parameters:@{kCount:[NSString stringWithFormat:@"%d",count]} success:^(id response) {
+    [self getPath:[NSString stringWithFormat:@"users/self/feed"] responseModel:[InstagramMedia class] parameters:@{kCount:[NSString stringWithFormat:@"%d",count]} success:^(id response, NSString *nextMaxId, NSString *nextUrl) {
         NSArray *objects = response;
-        success(objects);
+        success(objects, nextMaxId, nextUrl);
         
     } failure:^(NSError *error, NSInteger statusCode) {
         failure(error);
@@ -233,12 +242,12 @@ NSString *const kInstagramKitAuthorizationUrl __deprecated = @"https://api.insta
     
 }
 
-- (void)getSelfLikesWithSuccess:(void (^)(NSArray *feed))success
+- (void)getSelfLikesWithSuccess:(void (^)(NSArray *feed, NSString *nextMaxId, NSString *nextUrl))success
                         failure:(void (^)(NSError* error))failure
 {
-    [self getPath:[NSString stringWithFormat:@"users/self/media/liked"] responseModel:[InstagramMedia class] parameters:nil success:^(id response) {
+    [self getPath:[NSString stringWithFormat:@"users/self/media/liked"] responseModel:[InstagramMedia class] parameters:nil success:^(id response, NSString *nextMaxId, NSString *nextUrl) {
         NSArray *objects = response;
-        success(objects);
+        success(objects, nextMaxId, nextUrl);
         
     } failure:^(NSError *error, NSInteger statusCode) {
         failure(error);
@@ -249,12 +258,12 @@ NSString *const kInstagramKitAuthorizationUrl __deprecated = @"https://api.insta
 #pragma mark - Comments -
 
 - (void)getCommentsOnMedia:(NSString *)mediaId
-               withSuccess:(void (^)(NSArray *comments))success
+               withSuccess:(void (^)(NSArray *comments, NSString *nextMaxId, NSString *nextUrl))success
                    failure:(void (^)(NSError* error))failure
 {
-    [self getPath:[NSString stringWithFormat:@"media/%@/comments",mediaId] responseModel:[InstagramComment class] parameters:nil success:^(id response) {
+    [self getPath:[NSString stringWithFormat:@"media/%@/comments",mediaId] responseModel:[InstagramComment class] parameters:nil success:^(id response, NSString *nextMaxId, NSString *nextUrl) {
         NSArray *objects = response;
-        success(objects);
+        success(objects, nextMaxId, nextUrl);
         
     } failure:^(NSError *error, NSInteger statusCode) {
         failure(error);
